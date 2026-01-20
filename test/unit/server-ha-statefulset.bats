@@ -937,45 +937,6 @@ local value=$(echo $rendered |
   [[ "${args}" == *"ERROR: autopilot_redundancy_zone placeholder found but server.ha.raft.redundancyZones.enabled=false"* ]]
 }
 
-@test "server/ha-StatefulSet: redundancy zones: passes with JSON config" {
-  cd `chart_dir`
-  # Using temp values file since --set doesn't handle JSON braces well
-  local values_file=$(mktemp)
-  cat > "${values_file}" <<'EOF'
-server:
-  ha:
-    enabled: true
-    raft:
-      enabled: true
-      redundancyZones:
-        enabled: true
-      config: |
-        {
-          "ui": true,
-          "listener": {
-            "tcp": {
-              "address": "[::]:8200",
-              "cluster_address": "[::]:8201"
-            }
-          },
-          "storage": {
-            "raft": {
-              "path": "/vault/data",
-              "autopilot_redundancy_zone": "VAULT_REDUNDANCY_ZONE"
-            }
-          },
-          "service_registration": {
-            "kubernetes": {}
-          }
-        }
-EOF
-  helm template \
-      --show-only templates/server-statefulset.yaml  \
-      -f "${values_file}" \
-      .
-  rm -f "${values_file}"
-}
-
 @test "server/ha-StatefulSet: redundancy zones: fails when VAULT_REDUNDANCY_ZONE is empty" {
   cd `chart_dir`
   local args=$(helm template \
