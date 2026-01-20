@@ -961,7 +961,6 @@ server:
       # When enabled, the zone label from the node is exposed as VAULT_REDUNDANCY_ZONE
       # environment variable and substituted into the raft config.
       # See: https://developer.hashicorp.com/vault/docs/enterprise/redundancy-zones
-      # @default -- See values.yaml
       redundancyZones:
         enabled: false
 
