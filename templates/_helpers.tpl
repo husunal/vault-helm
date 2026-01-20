@@ -228,7 +228,7 @@ for users looking to use this chart with Consul Helm.
             if [ -n "${VAULT_REDUNDANCY_ZONE}" ]; then
               sed -Ei 's|(\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*)\"VAULT_REDUNDANCY_ZONE\"|\1\"'"${VAULT_REDUNDANCY_ZONE}"'\"|g' /tmp/storageconfig.hcl;
             else
-              echo "ERROR: Missing zone label on node. Redundancy zones require Kubernetes 1.35+ and nodes labeled with topology.kubernetes.io/zone. Verify: kubectl get nodes -L topology.kubernetes.io/zone" >&2;
+              echo "ERROR: Missing zone label on node. Enabling redundancy zones in vault-helm requires the PodTopologyLabels admission controller (enabled by default in Kubernetes 1.35+) and nodes labeled with topology.kubernetes.io/zone. Verify: kubectl get nodes -L topology.kubernetes.io/zone" >&2;
               exit 1;
             fi;
 {{- else if eq (.Values.server.ha.raft.enabled | toString) "true" }}
