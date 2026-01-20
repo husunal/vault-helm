@@ -1168,7 +1168,7 @@ Validates redundancy zones configuration:
   {{- $hclMatch := regexMatch "(?m)^(?:[^#/\\n]|/[^/])*autopilot_redundancy_zone\\s*=\\s*\"VAULT_REDUNDANCY_ZONE\"" $config -}}
   {{- $jsonMatch := regexMatch "\"autopilot_redundancy_zone\"\\s*:\\s*\"VAULT_REDUNDANCY_ZONE\"" $config -}}
   {{- if not (or $hclMatch $jsonMatch) -}}
-    {{- fail "server.ha.raft.redundancyZones.enabled=true requires 'autopilot_redundancy_zone = \"VAULT_REDUNDANCY_ZONE\"' (HCL) or '\"autopilot_redundancy_zone\": \"VAULT_REDUNDANCY_ZONE\"' (JSON) in server.ha.raft.config (must not be commented out)" -}}
+    {{- fail "server.ha.raft.redundancyZones.enabled=true requires 'autopilot_redundancy_zone = \"VAULT_REDUNDANCY_ZONE\"' in server.ha.raft.config (must not be commented out)" -}}
   {{- end -}}
 {{- end -}}
 {{- end -}}
