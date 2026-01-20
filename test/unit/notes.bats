@@ -5,7 +5,7 @@ load _helpers
 #--------------------------------------------------------------------
 # Redundancy Zones Warning
 
-@test "notes: warns when redundancyZones enabled without topologySpreadConstraints" {
+@test "Notes: redundancy zones: warns when enabled without topologySpreadConstraints" {
   cd `chart_dir`
   local result=$(helm install test . \
       --dry-run \
@@ -20,7 +20,7 @@ load _helpers
   [[ "${result}" == *"topologySpreadConstraints"* ]]
 }
 
-@test "notes: no warning when redundancyZones enabled with topologySpreadConstraints" {
+@test "Notes: redundancy zones: no warning when enabled with topologySpreadConstraints" {
   cd `chart_dir`
   local result=$(helm install test . \
       --dry-run \
@@ -36,7 +36,7 @@ load _helpers
   [[ "${result}" != *"WARNING: Redundancy Zones Enabled Without topologySpreadConstraints"* ]]
 }
 
-@test "notes: no warning when redundancyZones is disabled" {
+@test "Notes: redundancy zones: no warning when disabled" {
   cd `chart_dir`
   local result=$(helm install test . \
       --dry-run \

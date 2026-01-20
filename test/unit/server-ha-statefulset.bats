@@ -890,8 +890,9 @@ local value=$(echo $rendered |
       --set 'server.ha.raft.enabled=true' \
       . | yq -r '.spec.template.spec.containers[0].args[0]')
 
-  # Verify grep pattern matches uncommented HCL (=) and JSON (:) formats
-  [[ "${args_disabled}" == *'grep -qE '"'"'(^|[[:space:]])\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*\"VAULT_REDUNDANCY_ZONE\"'"'"* ]]
+  # Verify grep pattern filters out commented lines and matches uncommented HCL (=) and JSON (:) formats
+  [[ "${args_disabled}" == *"grep -vE '^[[:space:]]*(#|//)'"* ]]
+  [[ "${args_disabled}" == *'grep -qE '"'"'\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*\"VAULT_REDUNDANCY_ZONE\"'"'"* ]]
 
   # Test sed pattern (used when feature is enabled to substitute placeholder)
   local args_enabled=$(helm template \
@@ -950,7 +951,7 @@ local value=$(echo $rendered |
   # Verify script contains zone check that exits on failure
   [[ "${args}" == *'if [ -n "${VAULT_REDUNDANCY_ZONE}" ]; then'* ]]
   [[ "${args}" == *'exit 1'* ]]
-  
+
   # Verify shell logic fails when VAULT_REDUNDANCY_ZONE is unset
   run env -u VAULT_REDUNDANCY_ZONE sh -c 'if [ -n "${VAULT_REDUNDANCY_ZONE}" ]; then echo "success"; else echo "error"; exit 1; fi'
   [ "$status" -eq 1 ]
@@ -969,8 +970,45 @@ local value=$(echo $rendered |
   # Verify script contains zone check with sed substitution
   [[ "${args}" == *'if [ -n "${VAULT_REDUNDANCY_ZONE}" ]; then'* ]]
   [[ "${args}" == *'sed -Ei'* ]]
-  
+
   # Verify shell logic succeeds when VAULT_REDUNDANCY_ZONE is set
   run env VAULT_REDUNDANCY_ZONE="us-east-1a" sh -c 'if [ -n "${VAULT_REDUNDANCY_ZONE}" ]; then echo "success"; else echo "error"; exit 1; fi'
   [ "$status" -eq 0 ]
+}
+
+@test "server/ha-StatefulSet: redundancy zones: runtime grep ignores commented placeholder" {
+  # Test that the grep pattern used at runtime correctly ignores commented lines
+  # and matches uncommented HCL (=) and JSON (:) formats.
+
+  # Uncommented placeholder should match (HCL)
+  run sh -c 'echo "autopilot_redundancy_zone = \"VAULT_REDUNDANCY_ZONE\"" | grep -vE "^[[:space:]]*(#|//)" | grep -qE "\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*\"VAULT_REDUNDANCY_ZONE\""'
+  [ "$status" -eq 0 ]
+
+  # Uncommented placeholder should match (JSON)
+  run sh -c 'echo "\"autopilot_redundancy_zone\": \"VAULT_REDUNDANCY_ZONE\"" | grep -vE "^[[:space:]]*(#|//)" | grep -qE "\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*\"VAULT_REDUNDANCY_ZONE\""'
+  [ "$status" -eq 0 ]
+
+  # Uncommented placeholder should match (minified JSON)
+  run sh -c 'echo "{\"autopilot_redundancy_zone\":\"VAULT_REDUNDANCY_ZONE\"}" | grep -vE "^[[:space:]]*(#|//)" | grep -qE "\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*\"VAULT_REDUNDANCY_ZONE\""'
+  [ "$status" -eq 0 ]
+
+  # # commented placeholder should NOT match
+  run sh -c 'echo "# autopilot_redundancy_zone = \"VAULT_REDUNDANCY_ZONE\"" | grep -vE "^[[:space:]]*(#|//)" | grep -qE "\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*\"VAULT_REDUNDANCY_ZONE\""'
+  [ "$status" -eq 1 ]
+
+  # Indented # commented placeholder should NOT match
+  run sh -c 'echo "  # autopilot_redundancy_zone = \"VAULT_REDUNDANCY_ZONE\"" | grep -vE "^[[:space:]]*(#|//)" | grep -qE "\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*\"VAULT_REDUNDANCY_ZONE\""'
+  [ "$status" -eq 1 ]
+
+  # // commented placeholder should NOT match
+  run sh -c 'echo "// autopilot_redundancy_zone = \"VAULT_REDUNDANCY_ZONE\"" | grep -vE "^[[:space:]]*(#|//)" | grep -qE "\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*\"VAULT_REDUNDANCY_ZONE\""'
+  [ "$status" -eq 1 ]
+
+  # Indented // commented placeholder should NOT match
+  run sh -c 'echo "  // autopilot_redundancy_zone = \"VAULT_REDUNDANCY_ZONE\"" | grep -vE "^[[:space:]]*(#|//)" | grep -qE "\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*\"VAULT_REDUNDANCY_ZONE\""'
+  [ "$status" -eq 1 ]
+
+  # Commented placeholder should NOT match (JSON)
+  run sh -c 'echo "  // \"autopilot_redundancy_zone\": \"VAULT_REDUNDANCY_ZONE\"" | grep -vE "^[[:space:]]*(#|//)" | grep -qE "\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*\"VAULT_REDUNDANCY_ZONE\""'
+  [ "$status" -eq 1 ]
 }
