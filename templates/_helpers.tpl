@@ -224,6 +224,19 @@ for users looking to use this chart with Consul Helm.
             [ -n "${API_ADDR}" ] && sed -Ei "s|API_ADDR|${API_ADDR?}|g" /tmp/storageconfig.hcl;
             [ -n "${TRANSIT_ADDR}" ] && sed -Ei "s|TRANSIT_ADDR|${TRANSIT_ADDR?}|g" /tmp/storageconfig.hcl;
             [ -n "${RAFT_ADDR}" ] && sed -Ei "s|RAFT_ADDR|${RAFT_ADDR?}|g" /tmp/storageconfig.hcl;
+{{- if and (eq (.Values.server.ha.raft.enabled | toString) "true") (eq (.Values.server.ha.raft.redundancyZones.enabled | toString) "true") }}
+            if [ -n "${VAULT_REDUNDANCY_ZONE}" ]; then
+              sed -Ei 's|(\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*)\"VAULT_REDUNDANCY_ZONE\"|\1\"'"${VAULT_REDUNDANCY_ZONE}"'\"|g' /tmp/storageconfig.hcl;
+            else
+              echo "ERROR: Missing zone label on node. Redundancy zones require Kubernetes 1.35+ and nodes labeled with topology.kubernetes.io/zone. Verify: kubectl get nodes -L topology.kubernetes.io/zone" >&2;
+              exit 1;
+            fi;
+{{- else if eq (.Values.server.ha.raft.enabled | toString) "true" }}
+            if grep -qE '(^|[[:space:]])\"?autopilot_redundancy_zone\"?[[:space:]]*[=:][[:space:]]*\"VAULT_REDUNDANCY_ZONE\"' /tmp/storageconfig.hcl; then
+              echo "ERROR: autopilot_redundancy_zone placeholder found but server.ha.raft.redundancyZones.enabled=false. Enable the feature or remove the placeholder." >&2;
+              exit 1;
+            fi;
+{{- end }}
             /usr/local/bin/docker-entrypoint.sh vault server -config=/tmp/storageconfig.hcl {{ .Values.server.extraArgs }}
    {{ else if eq .mode "dev" }}
           - |
@@ -1134,5 +1147,28 @@ https://github.com/helm/helm/blob/50c22ed7f953fadb32755e5881ba95a92da852b2/pkg/e
 {{- fail "structured server config is not supported, value must be a string"}}
 {{- end }}
 {{- tpl $config . | nindent 4 | trim }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Validates redundancy zones configuration:
+1. Requires HA mode enabled
+2. Requires Raft storage enabled
+3. Requires VAULT_REDUNDANCY_ZONE placeholder in config (HCL or JSON)
+*/}}
+{{- define "vault.validateRedundancyZones" -}}
+{{- if eq (.Values.server.ha.raft.redundancyZones.enabled | toString) "true" -}}
+  {{- if ne (.Values.server.ha.enabled | toString) "true" -}}
+    {{- fail "server.ha.raft.redundancyZones.enabled=true requires server.ha.enabled=true" -}}
+  {{- end -}}
+  {{- if ne (.Values.server.ha.raft.enabled | toString) "true" -}}
+    {{- fail "server.ha.raft.redundancyZones.enabled=true requires server.ha.raft.enabled=true" -}}
+  {{- end -}}
+  {{- $config := .Values.server.ha.raft.config | default "" -}}
+  {{- $hclMatch := regexMatch "(?m)^(?:[^#/\\n]|/[^/])*autopilot_redundancy_zone\\s*=\\s*\"VAULT_REDUNDANCY_ZONE\"" $config -}}
+  {{- $jsonMatch := regexMatch "\"autopilot_redundancy_zone\"\\s*:\\s*\"VAULT_REDUNDANCY_ZONE\"" $config -}}
+  {{- if not (or $hclMatch $jsonMatch) -}}
+    {{- fail "server.ha.raft.redundancyZones.enabled=true requires 'autopilot_redundancy_zone = \"VAULT_REDUNDANCY_ZONE\"' (HCL) or '\"autopilot_redundancy_zone\": \"VAULT_REDUNDANCY_ZONE\"' (JSON) in server.ha.raft.config (must not be commented out)" -}}
+  {{- end -}}
 {{- end -}}
 {{- end -}}
